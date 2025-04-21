@@ -1,0 +1,49 @@
+body {
+    background-color: #8383ea;
+    color: white;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+  }
+
+  .container {
+    background-color: white;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+  }
+
+  h2 {
+    margin-bottom: 20px;
+    color: blue;
+  }
+
+  input.form-control {
+    margin-bottom: 15px;
+    width: 100%;
+    padding: 10px;
+    border-radius: 4px;
+  }
+
+  button.btn {
+    width: 100%;
+    padding: 10px;
+    border-radius: 4px;
+  }
+
+  p {
+    color: white;
+  }
+
+  a {
+    color: lightblue;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }

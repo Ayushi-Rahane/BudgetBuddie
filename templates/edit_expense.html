@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Edit Expense</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container mt-5">
+    <h2>Edit Expense</h2>
+    <form action="/update_expense/{{ expense['id'] }}" method="POST">
+      <div class="mb-3">
+        <label>Title</label>
+        <input type="text" name="title" class="form-control" value="{{ expense['title'] }}" required>
+      </div>
+      <div class="mb-3">
+        <label>Category</label>
+        <select name="category" class="form-control" required>
+          <option value="Food" {% if expense['category'] == 'Food' %}selected{% endif %}>Food</option>
+          <option value="Transport" {% if expense['category'] == 'Transport' %}selected{% endif %}>Transport</option>
+          <option value="Entertainment" {% if expense['category'] == 'Entertainment' %}selected{% endif %}>Entertainment</option>
+          <option value="Other" {% if expense['category'] == 'Other' %}selected{% endif %}>Other</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label>Amount (₹)</label>
+        <input type="number" name="amount" class="form-control" value="{{ expense['amount'] }}" required>
+      </div>
+      <button type="submit" class="btn btn-success">Update</button>
+      <a href="/" class="btn btn-secondary">Cancel</a>
+    </form>
+  </div>
+</body>
+</html>
