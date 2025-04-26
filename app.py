@@ -3,7 +3,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import mysql.connector
 import os
 from dotenv import load_dotenv
-
+from datetime import datetime, timedelta 
+import matplotlib.pyplot as plt
 load_dotenv() # Load environment variables from .env file
 
 
@@ -22,6 +23,42 @@ app = Flask(__name__)
 
 #app.secret_key = os.getenv('SECRET_KEY')
 app.secret_key = '8c0f560fe793bc1ca1899625700c6c0b'
+
+
+# Function to get budget suggestions based on last month's expenses
+def get_budget_suggestions(user_id):
+    today = datetime.today() # Get today's date
+    first_day_this_month = today.replace(day=1) # Get the first day of the current month
+
+    # Step 1: Get Custom Budgets
+    cursor.execute("""
+        SELECT category, amount FROM budgets
+        WHERE user_id = %s AND month = %s
+    """, (user_id, first_day_this_month))
+    custom_budgets = {row['category']: row['amount'] for row in cursor.fetchall()} 
+
+    # Step 2: Calculate Last Month's Expenses
+    last_month = (first_day_this_month - timedelta(days=1)).replace(day=1)
+    last_day_last_month = first_day_this_month - timedelta(days=1)
+
+    cursor.execute("""
+        SELECT category, SUM(amount) as total FROM expenses
+        WHERE user_id = %s AND date BETWEEN %s AND %s
+        GROUP BY category
+    """, (user_id, last_month, last_day_last_month))
+    rows = cursor.fetchall()
+
+    # Step 3: Suggest 90% of last month’s total (or use custom if exists)
+    suggestions = {}
+    for row in rows:
+        category = row['category']
+        if category in custom_budgets:
+            suggestions[category] = custom_budgets[category]
+        else:
+            suggestions[category] = round(row['total'] * 0.9)
+    
+    return suggestions
+
 
 @app.route('/login', methods=['GET','POST'])
 def login():
@@ -137,12 +174,55 @@ def home():
         # User is logged in, show the home page
         
         user_id = session['user_id']
-        cursor.execute("SELECT  id, title, category, amount FROM expenses WHERE user_id = %s", (user_id,))
+        search_query = request.args.get('query')
+        amount = request.args.get('amount')
+        date = request.args.get('date')
+        # Fetch expenses from the database
+        sql = "SELECT id,title, category, amount, date FROM expenses WHERE user_id = %s"
+        params = [user_id]
+
+        if search_query:
+            sql +=" AND (title LIKE %s OR category LIKE %s)"
+            params.extend([f"%{search_query}%", f"%{search_query}%"])
+
+        if amount:
+            sql += " AND amount = %s"
+            params.append(amount)
+        
+        if date:
+            sql += " AND DATE(date) = %s"
+            params.append(date)
+        
+        cursor.execute(sql, tuple(params))
         expenses = cursor.fetchall()
+
+        total = sum(exp['amount'] for exp in expenses)
+
+          # Get budget suggestions
+        suggestions = get_budget_suggestions(user_id)
+
+        # Calculate total spent per category
+        category_totals = {}
+        for exp in expenses:
+            category = exp['category']
+            category_totals[category] = category_totals.get(category, 0) + exp['amount']
         
-        #cursor.execute("select sum(amount) from expenses where user_id = %s",(user_id,))
-        
-        return render_template('index.html', expenses=expenses)
+        # Plot Pie Chart
+        if category_totals:
+            labels = list(category_totals.keys())
+            sizes = list(category_totals.values())
+
+            plt.figure(figsize=(6, 6))
+            plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
+            plt.axis('equal')  # Equal aspect ratio ensures it’s a circle.
+
+            chart_path = os.path.join('static', 'piechart.png')
+            plt.savefig(chart_path)
+            plt.close()
+
+        return render_template('index.html', expenses=expenses, total=total,
+                           category_totals=category_totals,
+                           suggestions=suggestions,   chart_url=chart_path if category_totals else None)
     
     else:
         # User is not logged in, redirect to the login page
