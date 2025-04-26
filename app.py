@@ -95,11 +95,17 @@ def add_expense():
     title = request.form['title']
     category = request.form['category']
     amount = request.form['amount']
+    date = request.form.get('date')
+    if not date:
+        date = datetime.today()
+    else:
+        date = datetime.strptime(date, '%Y-%m-%d')
+
     user_id = session['user_id']  # Assuming the user is logged in
 
     cursor.execute(
-        "INSERT INTO expenses (user_id, title, category, amount) VALUES (%s, %s, %s, %s)",
-        (user_id, title, category, amount)
+        "INSERT INTO expenses (user_id, title, category, amount, date) VALUES (%s, %s, %s, %s, %s)",
+        (user_id, title, category, amount, date)
     )
     conn.commit()
     return redirect(url_for('home'))
@@ -196,33 +202,10 @@ def home():
         cursor.execute(sql, tuple(params))
         expenses = cursor.fetchall()
 
-        total = sum(exp['amount'] for exp in expenses)
-
-          # Get budget suggestions
-        suggestions = get_budget_suggestions(user_id)
-
-        # Calculate total spent per category
-        category_totals = {}
-        for exp in expenses:
-            category = exp['category']
-            category_totals[category] = category_totals.get(category, 0) + exp['amount']
+        total = sum(exp['amount'] for exp in expenses)       
         
-        # Plot Pie Chart
-        if category_totals:
-            labels = list(category_totals.keys())
-            sizes = list(category_totals.values())
 
-            plt.figure(figsize=(6, 6))
-            plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
-            plt.axis('equal')  # Equal aspect ratio ensures it’s a circle.
-
-            chart_path = os.path.join('static', 'piechart.png')
-            plt.savefig(chart_path)
-            plt.close()
-
-        return render_template('index.html', expenses=expenses, total=total,
-                           category_totals=category_totals,
-                           suggestions=suggestions,   chart_url=chart_path if category_totals else None)
+        return render_template('index.html', expenses=expenses, total=total,)
     
     else:
         # User is not logged in, redirect to the login page
