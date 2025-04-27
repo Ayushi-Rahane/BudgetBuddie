@@ -219,10 +219,137 @@ def view_expense_page():
 
         return render_template('view_expense.html', expenses=expenses)
 
+
+@app.route('/income_page')
+def income_page():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    # Fetch all incomes
+    cursor.execute("SELECT * FROM income WHERE user_id = %s ORDER BY date DESC LIMIT 3", (session['user_id'],))
+    incomes = cursor.fetchall()
+
+    # Fetch income grouped by source for Pie Chart
+    cursor.execute("SELECT source, SUM(amount) as total FROM income WHERE user_id = %s GROUP BY source", (session['user_id'],))
+    income_sources = cursor.fetchall()
+
+    total_income = sum(row['total'] for row in income_sources)
+
+    # Generate pie chart
+    if income_sources:
+        labels = [row['source'] for row in income_sources]
+        sizes = [row['total'] for row in income_sources]
+        create_income_piechart(labels, sizes, total_income)
+        chart_available = True
+    else:
+        chart_available = False
+
+    return render_template('income.html', incomes=incomes, chart_url=chart_available)
+#piechart function to show income based on income source
+def create_income_piechart(labels, sizes, total_income):
+    # Colors (optional: you can customize)
+    colors = plt.cm.Paired.colors[:len(labels)]
+
+    # Create a figure for the pie chart
+    fig, ax = plt.subplots(figsize=(6, 6))
+    wedges, texts, autotexts = ax.pie(
+        sizes, 
+        labels=None, 
+        autopct='%1.1f%%', 
+        startangle=140, 
+        colors=colors,
+        textprops={'color':"w"}
+    )
+
+    # Draw circle for donut
+    centre_circle = plt.Circle((0, 0), 0.70, fc='white')
+    fig.gca().add_artist(centre_circle)
+
+    # Add Total Income in center
+    plt.text(0, 0, f'Total\n₹{total_income:.2f}', horizontalalignment='center', verticalalignment='center', fontsize=14, fontweight='bold')
+
+    # Add Legend
+    ax.legend(wedges, labels, title="Sources", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+
+    plt.tight_layout()
+
+    # Save chart to static folder (no GUI)
+    plt.savefig('static/piechart_income.png', transparent=True)
+
+    # Close the plot to avoid GUI interference
+    plt.close()
+
+
+@app.route('/add_income', methods=['POST'])
+def add_income():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    amount = request.form['amount']
+    date = request.form.get('date')
+    if not date:
+        date = datetime.today()
+    else:
+        date = datetime.strptime(date, '%Y-%m-%d')
+    source = request.form['source']
+    user_id = session['user_id']
+    cursor.execute(
+        "INSERT INTO income (user_id, amount, source, date) VALUES (%s, %s, %s, %s)",
+        (user_id, amount,source, date)
+    )
+    conn.commit()
+    return redirect(url_for('income_page'))
+
+
+
+@app.route('/edit_income_page/<int:income_id>')
+def edit_income_page(income_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    cursor.execute("SELECT * FROM income WHERE id = %s", (income_id,))
+    income = cursor.fetchone()
+
+    if not income:
+        return "Income not found", 404
+
+    return render_template('edit_income.html', income=income)
+
+@app.route('/update_income/<int:income_id>', methods=['POST'])
+def update_income(income_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    amount = request.form['amount']
+    source = request.form['source']
+    date = request.form['date']
+    
+    if not date:
+        date = datetime.today()
+    else:
+        date = datetime.strptime(date, '%Y-%m-%d')
+    
+    cursor.execute(
+        "UPDATE income SET amount = %s, source = %s, date = %s WHERE id = %s",
+        (amount, source, date, income_id)
+    )
+    conn.commit()
+    return redirect(url_for('income_page'))
+
+
+@app.route('/delete_income/<int:income_id>', methods=['POST'])
+def delete_income(income_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    cursor.execute("DELETE FROM income WHERE id = %s", (income_id,))
+    conn.commit()
+    return redirect(url_for('income_page'))
+
+
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, threaded=False)

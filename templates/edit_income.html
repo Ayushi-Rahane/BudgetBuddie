@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Edit Income{% endblock %}
+{% block styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='add_expense_style.css') }}">
+{% endblock %}
+{% block content %}
+<div class="container mt-5">
+    <h2>Edit Income</h2>
+    <form action="{{ url_for('update_income', income_id=income['id']) }}" method="POST">
+        <div class="mb-3">
+            <label>Amount</label>
+            <input type="number" name="amount" class="form-control" value="{{ income['amount'] }}" required>
+        </div>
+        <div class="mb-3">
+            <label>Source</label>
+            <input type="text" name="source" class="form-control" value="{{ income['source'] }}" required>
+        </div>
+        <div class="mb-3">
+            <label>Date</label>
+            <input type="date" name="date" class="form-control" value="{{ income['date'].strftime('%Y-%m-%d') }}" required>
+        </div>
+        <button type="submit" class="btn btn-success">Update</button>
+        <a href="{{ url_for('income_page') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}
