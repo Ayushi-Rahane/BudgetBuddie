@@ -25,39 +25,6 @@ app = Flask(__name__)
 app.secret_key = '8c0f560fe793bc1ca1899625700c6c0b'
 
 
-# Function to get budget suggestions based on last month's expenses
-def get_budget_suggestions(user_id):
-    today = datetime.today() # Get today's date
-    first_day_this_month = today.replace(day=1) # Get the first day of the current month
-
-    # Step 1: Get Custom Budgets
-    cursor.execute("""
-        SELECT category, amount FROM budgets
-        WHERE user_id = %s AND month = %s
-    """, (user_id, first_day_this_month))
-    custom_budgets = {row['category']: row['amount'] for row in cursor.fetchall()} 
-
-    # Step 2: Calculate Last Month's Expenses
-    last_month = (first_day_this_month - timedelta(days=1)).replace(day=1)
-    last_day_last_month = first_day_this_month - timedelta(days=1)
-
-    cursor.execute("""
-        SELECT category, SUM(amount) as total FROM expenses
-        WHERE user_id = %s AND date BETWEEN %s AND %s
-        GROUP BY category
-    """, (user_id, last_month, last_day_last_month))
-    rows = cursor.fetchall()
-
-    # Step 3: Suggest 90% of last month’s total (or use custom if exists)
-    suggestions = {}
-    for row in rows:
-        category = row['category']
-        if category in custom_budgets:
-            suggestions[category] = custom_budgets[category]
-        else:
-            suggestions[category] = round(row['total'] * 0.9)
-    
-    return suggestions
 
 
 @app.route('/login', methods=['GET','POST'])
@@ -108,7 +75,7 @@ def add_expense():
         (user_id, title, category, amount, date)
     )
     conn.commit()
-    return redirect(url_for('home'))
+    return redirect(url_for('add_expense_page'))
 
 
 # Delete an expense (DELETE EXPENSE)
@@ -119,7 +86,7 @@ def delete_expense(expense_id):
     
     cursor.execute("DELETE FROM expenses WHERE id = %s", (expense_id,))
     conn.commit()
-    return redirect(url_for('home'))
+    return redirect(url_for('view_expense_page'))
 
 #Show the Edit form
 @app.route('/edit_expense/<int:expense_id>', methods=['GET'])
@@ -140,7 +107,7 @@ def update_expense(expense_id):
         (title, category, amount, expense_id)
     )
     conn.commit()
-    return redirect(url_for('home'))
+    return redirect(url_for('view_expense_page'))
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -211,6 +178,51 @@ def home():
         # User is not logged in, redirect to the login page
         return redirect(url_for('login'))
     
+#Add expense page rendering
+@app.route('/add_expense_page')
+def add_expense_page():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    cursor.execute("SELECT * FROM expenses order by date desc limit 3")
+    expenses = cursor.fetchall()    
+    return render_template('add_expense.html',expenses=expenses)
+
+
+#View expense page rendering
+@app.route('/view_expense_page')
+def view_expense_page():
+    if 'user_id' in session:
+        # User is logged in, show the home page
+        
+        user_id = session['user_id']
+        search_query = request.args.get('query')
+        amount = request.args.get('amount')
+        date = request.args.get('date')
+        # Fetch expenses from the database
+        sql = "SELECT id,title, category, amount, date FROM expenses WHERE user_id = %s"
+        params = [user_id]
+
+        if search_query:
+            sql +=" AND (title LIKE %s OR category LIKE %s)"
+            params.extend([f"%{search_query}%", f"%{search_query}%"])
+
+        if amount:
+            sql += " AND amount = %s"
+            params.append(amount)
+        
+        if date:
+            sql += " AND DATE(date) = %s"
+            params.append(date)
+        
+        cursor.execute(sql, tuple(params))
+        expenses = cursor.fetchall()
+
+        return render_template('view_expense.html', expenses=expenses)
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     app.run(debug=True)

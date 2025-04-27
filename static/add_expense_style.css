@@ -56,3 +56,30 @@ body {
     background-color: #c82333;
     border-color: #bd2130;
   }
+
+.view-more-row {
+    opacity: 0.6; /* slightly faded */
+    transition: opacity 0.3s, background-color 0.3s;
+}
+
+.view-more-row:hover {
+    opacity: 1;
+    background-color: #f8f9fa; /* slight highlight when hovered */
+}
+    .view-more-row a {
+        color: #007bff;
+        text-decoration: none;
+    }
+    .view-more-row a:hover {
+        text-decoration: underline;
+    }
+    .list-group-item {
+        background-color: #ffffff;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        margin-bottom: 10px;
+    }
+    .list-group-item h5 {
+        margin-bottom: 0.5rem;
+    }
+    

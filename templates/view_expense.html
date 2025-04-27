@@ -1,0 +1,69 @@
+{% extends 'base.html'%}
+{% block title %}BudgetBuddie - View Expense{% endblock %}
+{% block styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='add_expense_style.css') }}">
+{% endblock %}
+
+{% block scripts %}
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container text-center">
+ <!-- Expenses Table -->
+ <div class="mt-5">
+    <h4>Your Expenses</h4>
+       <!-- Search & Filter Form -->
+  <form action="/" method="GET" class="row g-2 mt-4">
+  <div class="col-md-4">
+      <input type="text" name="query" class="form-control" placeholder="Search by title or category">
+  </div>
+  <div class="col-md-3">
+      <input type="number" name="amount" class="form-control" placeholder="Filter by amount">
+  </div>
+  <div class="col-md-3">
+      <input type="date" name="date" class="form-control" placeholder="Filter by date">
+  </div>
+  <div class="col-md-2">
+      <button type="submit" class="btn btn-primary w-100">Filter</button>
+  </div>
+  </form>
+    <table class="table table-striped mt-3">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Category</th>
+          <th>Amount (₹)</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for expense in expenses %}
+        <tr>
+          <td>{{ expense['title'] }}</td>  <!-- title -->
+          <td>{{ expense['category'] }}</td>  <!-- category -->
+          <td>₹{{ expense['amount'] }}</td> <!-- amount -->
+          <td>{{ expense['date'].strftime('%Y-%m-%d') }}</td> <!-- date -->
+          <td>
+            
+            <a href="/edit_expense/{{ expense['id'] }}" class="btn btn-sm btn-warning">Edit</a>
+            
+            <form action="/delete_expense/{{ expense['id'] }}" method="POST" style="display:inline;">
+              <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+            </form>
+
+
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="4">No expenses added yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
