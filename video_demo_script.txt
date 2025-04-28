@@ -1,0 +1,43 @@
+Introduction:
+
+"Welcome to our Budget Buddie app! This app helps you keep track of your expenses and income, manage your budget, and give you insights into your spending. Let’s walk through how it works."
+
+Scene 1: Login Page
+
+"First, let’s log in. Enter your username and password, and hit ‘Login.’ If you don't have an account yet, you can easily register by clicking ‘Register here’. Enter your email and password, and you're good to go!"
+
+Scene 2: Home Page
+
+"Once you’re logged in, you’ll be directed to the home page. Here, you can see a quick overview of your finances, including your total income, total expenses, and your balance. It's a simple way to track how much you're earning and spending at a glance."
+
+Scene 3: Add an Expense
+
+"To add an expense, click on ‘Add Expense.’ Fill in the title, category, amount, and the date of your expense. If you forget to add the date, the app will default to today’s date. Once you're done, hit ‘Save,’ and your expense is added to your records!"
+
+Scene 4: View and Edit Expenses
+
+"Want to see your past expenses? Just click ‘View Expenses.’ Here, you can filter your expenses by categories, amount, or date. You can even edit or delete an expense if needed. Simply click on the expense you want to modify, and make the necessary changes."
+
+Scene 5: Expense Analysis with Pie Charts
+
+"To help you visualize where your money is going, we’ve included pie charts. Here you can see your spending breakdown by category. It’s an easy way to identify which areas you’re spending the most on and where you could save."
+
+Scene 6: Add Income
+
+"Just like expenses, you can also add your income. Click on ‘Add Income,’ and enter the amount, source, and date. Whether it’s salary, side hustle, or any other source, it’s all recorded here."
+
+Scene 7: Income Analysis with Pie Charts
+
+"On the income page, we also have a pie chart that shows how much you’re earning from different sources. It’s a great way to see which income streams are contributing the most to your total earnings."
+
+Scene 8: Set a Budget
+
+"Now, let's talk about budgeting. Under the ‘Budget Settings’ section, you can set your monthly budget. The app will keep track of your spending and alert you when you’re getting close to your budget limit. You'll also see a helpful pie chart that shows how much of your budget has been used, and how much is left."
+
+Scene 9: Budget Warning System
+
+"If you exceed your budget, the app will give you a warning message, letting you know that you’ve gone over. We want to make sure you stay on track with your finances, and this alert system helps you do just that!"
+
+Scene 10: Logout
+
+"When you're done, simply click ‘Logout’ to sign out securely from the app."

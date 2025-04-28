@@ -15,16 +15,24 @@
 </head>
 <body>
   <div class="side-navbar">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="BudgetBuddie Logo" class="logo">
+    <img src="{{ url_for('static', filename='logo2.png') }}" alt="BudgetBuddie Logo" class="logo">
   
-    <a href="/" class="active">Dashboard</a>
-    <a href="{{ url_for('add_expense_page')}}">Add Expense</a>
-    <a href="{{ url_for('income_page')}}">Income</a>
-    <a href="{{ url_for('view_expense_page')}}">View Expense</a>
-    <a href="{{ url_for('logout')}}">Logout</a>
+      <!-- Add the active class conditionally based on the current URL -->
+      <a href="/" class="{{ 'active' if request.endpoint == 'home' else '' }}">Dashboard</a>
+      <a href="{{ url_for('add_expense_page') }}" class="{{ 'active' if request.endpoint == 'add_expense_page' else '' }}">Add Expense</a>
+      <a href="{{ url_for('income_page') }}" class="{{ 'active' if request.endpoint == 'income_page' else '' }}">Income</a>
+      <a href="{{ url_for('view_expense_page') }}" class="{{ 'active' if request.endpoint == 'view_expense_page' else '' }}">View Expense</a>
+      <a href="{{ url_for('budget_setting_page') }}" class="{{ 'active' if request.endpoint == 'budget_setting_page' else '' }}">Budget Manager</a>
+      <a href="{{ url_for('logout') }}" class="{{ 'active' if request.endpoint == 'logout' else '' }}">Logout</a>
 
   </div>
+ <!-- Alert Section -->
 
+ {% if warning_message %}
+<div class="alert alert-{{ warning_color }} text-center mb-0" role="alert" style="margin-left:250px;">
+  {{ warning_message }}
+</div>
+{% endif %}
   {% block content %}
   {% endblock %}
   <!-- Page Specific Scripts -->

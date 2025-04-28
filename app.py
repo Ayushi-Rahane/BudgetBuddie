@@ -4,7 +4,11 @@ import mysql.connector
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta 
+import matplotlib
+matplotlib.use('Agg')  # Use a non-GUI backend before importing pyplot
 import matplotlib.pyplot as plt
+import io
+import base64
 load_dotenv() # Load environment variables from .env file
 
 
@@ -147,45 +151,79 @@ def home():
         # User is logged in, show the home page
         
         user_id = session['user_id']
-        search_query = request.args.get('query')
-        amount = request.args.get('amount')
-        date = request.args.get('date')
-        # Fetch expenses from the database
-        sql = "SELECT id,title, category, amount, date FROM expenses WHERE user_id = %s"
-        params = [user_id]
-
-        if search_query:
-            sql +=" AND (title LIKE %s OR category LIKE %s)"
-            params.extend([f"%{search_query}%", f"%{search_query}%"])
-
-        if amount:
-            sql += " AND amount = %s"
-            params.append(amount)
-        
-        if date:
-            sql += " AND DATE(date) = %s"
-            params.append(date)
-        
-        cursor.execute(sql, tuple(params))
+             
+        cursor.execute("SELECT * FROM expenses WHERE user_id = %s order by date desc limit 3", (user_id,))
         expenses = cursor.fetchall()
+        cursor.execute("select * from expenses where user_id = %s", (user_id,))
+        all_expenses = cursor.fetchall()
+        total_expense = sum(exp['amount'] for exp in all_expenses)
+        cursor.execute("select * from income where user_id=%s", (user_id,))
+        incomes = cursor.fetchall()
+        total_income = sum(income['amount'] for income in incomes)
+        total_balance = total_income - total_expense
 
-        total = sum(exp['amount'] for exp in expenses)       
-        
+         # Create financial overview pie chart
+        overview_labels = ['Total Income', 'Total Expenses']
+        overview_sizes = [total_income, total_expense]
+        overview_image_base64 = create_financial_overview_piechart(overview_labels, overview_sizes)
 
-        return render_template('index.html', expenses=expenses, total=total,)
+
+        return render_template('index.html', expenses=expenses, total_expense=total_expense, total_income=total_income, total_balance=total_balance,           overview_image_base64=overview_image_base64)
     
     else:
         # User is not logged in, redirect to the login page
         return redirect(url_for('login'))
-    
+
+def create_financial_overview_piechart(labels, sizes):
+    colors = ['#4CAF50', '#F44336']  # Green for Income, Red for Expenses
+
+    fig, ax = plt.subplots(figsize=(5, 3))
+    wedges, texts, autotexts = ax.pie(
+        sizes,
+        labels=None,
+        autopct='%1.1f%%',
+        startangle=90,
+        colors=colors,
+        textprops={'color': 'white'}
+    )
+
+    # Donut style
+    centre_circle = plt.Circle((0, 0), 0.70, fc='white')
+    fig.gca().add_artist(centre_circle)
+
+    #Add total balance in center
+    total_balance = sizes[0] - sizes[1]
+    plt.text(0, 0, f'Total Balance\n₹{total_balance:.2f}', horizontalalignment='center', verticalalignment='center', fontsize=14, fontweight='bold')
+
+    # Legend
+    ax.legend(wedges, labels, loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+
+    plt.tight_layout()
+
+    # Save to buffer
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', transparent=True)
+    buf.seek(0)
+    image_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+    buf.close()
+
+    plt.close(fig)
+    return image_base64
+
+
+
 #Add expense page rendering
 @app.route('/add_expense_page')
 def add_expense_page():
     if 'user_id' not in session:
         return redirect(url_for('login'))
+    user_id = session['user_id']
     cursor.execute("SELECT * FROM expenses order by date desc limit 3")
     expenses = cursor.fetchall()    
-    return render_template('add_expense.html',expenses=expenses)
+    cursor.execute("select * from expenses where user_id = %s", (user_id,))
+    all_expenses = cursor.fetchall()
+    total_expense = sum(exp['amount'] for exp in all_expenses) 
+    return render_template('add_expense.html',expenses=expenses, total=total_expense)
 
 
 #View expense page rendering
@@ -216,10 +254,47 @@ def view_expense_page():
         
         cursor.execute(sql, tuple(params))
         expenses = cursor.fetchall()
+    # --- Category-wise analysis ---
+        cursor.execute("SELECT category, SUM(amount) as total FROM expenses WHERE user_id = %s GROUP BY category", (user_id,))
+        category_data = cursor.fetchall()
 
-        return render_template('view_expense.html', expenses=expenses)
+        categories = [row['category'] for row in category_data]
+        amounts = [row['total'] for row in category_data]
+
+        # Generate pie chart
+        category_chart_base64 = create_category_pie_chart(categories, amounts)
+        return render_template('view_expense.html', expenses=expenses, category_chart_base64=category_chart_base64)
+
+def create_category_pie_chart(categories, amounts):
+    colors = plt.cm.Paired.colors  # Use a colormap
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    
+    wedges, texts, autotexts = ax.pie(
+        amounts,
+        # Remove labels from here
+        autopct='%1.1f%%',
+        startangle=140,
+        colors=colors,
+        textprops={'fontsize': 10, 'color': 'black'}  # only % will be black
+    )
+
+    # Manually add category labels with white color
+    for i, text in enumerate(texts):
+        text.set_text(categories[i])  # Set category name
+        text.set_color('white')       # Make it white
+        text.set_fontsize(10)       
 
 
+    ax.axis('equal')  # Equal aspect ratio ensures pie is circular.
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', bbox_inches='tight', transparent=True)
+    buf.seek(0)
+    img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+    plt.close()
+
+    return img_base64
 @app.route('/income_page')
 def income_page():
     if 'user_id' not in session:
@@ -239,12 +314,11 @@ def income_page():
     if income_sources:
         labels = [row['source'] for row in income_sources]
         sizes = [row['total'] for row in income_sources]
-        create_income_piechart(labels, sizes, total_income)
-        chart_available = True
+        image_base64 = create_income_piechart(labels, sizes, total_income)
     else:
-        chart_available = False
+        image_base64 = None
 
-    return render_template('income.html', incomes=incomes, chart_url=chart_available)
+    return render_template('income.html', incomes=incomes, image_base64=image_base64)
 #piechart function to show income based on income source
 def create_income_piechart(labels, sizes, total_income):
     # Colors (optional: you can customize)
@@ -273,11 +347,19 @@ def create_income_piechart(labels, sizes, total_income):
 
     plt.tight_layout()
 
-    # Save chart to static folder (no GUI)
-    plt.savefig('static/piechart_income.png', transparent=True)
+  #save plot to ByteIO instead saving to file
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', transparent=True)
+    buf.seek(0)
+
+    # Encode the image to base64
+    image_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+    buf.close()
+
 
     # Close the plot to avoid GUI interference
-    plt.close()
+    plt.close(fig)
+    return image_base64
 
 
 @app.route('/add_income', methods=['POST'])
@@ -345,11 +427,134 @@ def delete_income(income_id):
     conn.commit()
     return redirect(url_for('income_page'))
 
+@app.route('/budget_setting', methods=['GET', 'POST'])
+def budget_setting_page():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+
+    if request.method == 'POST':
+        budget = request.form.get('budget')
+        if budget:
+            budget = float(budget)
+            cursor.execute("SELECT * FROM budgets WHERE user_id = %s", (user_id,))
+            existing_budget = cursor.fetchone()
+            if existing_budget:
+                cursor.execute("UPDATE budgets SET budget_amount = %s WHERE user_id = %s", (budget, user_id))
+            else:
+                cursor.execute("INSERT INTO budgets (user_id, budget_amount) VALUES (%s, %s)", (user_id, budget))
+            conn.commit()
+        return redirect(url_for('budget_setting_page'))
+
+    # For GET request: fetch budget
+    cursor.execute("SELECT budget_amount FROM budgets WHERE user_id = %s", (user_id,))
+    result = cursor.fetchone()
+    budget = float(result['budget_amount']) if result else None
+
+    # Calculate total expense
+    cursor.execute("SELECT SUM(amount) as total_expense FROM expenses WHERE user_id = %s", (user_id,))
+    total_expense = cursor.fetchone()['total_expense'] or 0
+    total_expense = float(total_expense)
+
+    budget_doughnut_chart_base64 = None
+    warning_message = None
+    warning_color = None
+    motivational_message = None
+
+    if budget is not None:
+        budget_doughnut_chart_base64 = create_budget_doughnut_chart(budget, total_expense)
+
+        if budget > 0:
+            usage_percent = (total_expense / budget) * 100
+
+            if usage_percent >= 100:
+                warning_message = "🚨 You have exceeded your budget! Please review your expenses."
+                warning_color = "danger"  # Red
+            elif usage_percent >= 90:
+                warning_message = "⚠️ You have used over 90% of your budget. Spend carefully!"
+                warning_color = "warning"  # Yellow
+            else:
+                motivational_message = "🎯 Great job! You're managing your budget well. Keep going!"
+
+    return render_template('budget_setting.html',
+                           budget=budget,
+                           budget_doughnut_chart_base64=budget_doughnut_chart_base64,
+                           warning_message=warning_message,
+                           warning_color=warning_color,
+                           motivational_message=motivational_message)
+
+# --- function to create Budget Doughnut Chart ---
+def create_budget_doughnut_chart(budget, total_expense):
+    labels = ['Used', 'Remaining']
+    sizes = [total_expense, max(0, budget - total_expense)]
+    colors = ['#FF6F61', '#6FCF97']  # Red for used, Green for remaining
+
+    fig, ax = plt.subplots(figsize=(6, 6))
+    wedges, texts, autotexts = ax.pie(
+        sizes,
+        labels=None,
+        autopct='%1.1f%%',
+        startangle=90,
+        colors=colors,
+        textprops={'color': "w"}
+    )
+
+    # Donut style
+    centre_circle = plt.Circle((0, 0), 0.70, fc='white')
+    fig.gca().add_artist(centre_circle)
+
+    # Add remaining budget in center
+    remaining = budget - total_expense
+    plt.text(0, 0, f'Remaining\n₹{remaining:.2f}', horizontalalignment='center', verticalalignment='center', fontsize=14, fontweight='bold')
+
+    ax.legend(wedges, labels, title="Budget", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+
+    plt.tight_layout()
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', transparent=True)
+    buf.seek(0)
+    image_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+    buf.close()
+    plt.close(fig)
+    return image_base64
+
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+#inject_budget_warning() automatically injects warning_message and warning_color into every template without you needing to manually pass them in every render_template().
+@app.context_processor
+def inject_budget_warning():
+    if 'user_id' not in session:
+        return {}
+
+    user_id = session['user_id']
+
+    cursor.execute("SELECT budget_amount FROM budgets WHERE user_id = %s", (user_id,))
+    result = cursor.fetchone()
+    budget = float(result['budget_amount']) if result else None
+
+    cursor.execute("SELECT SUM(amount) as total_expense FROM expenses WHERE user_id = %s", (user_id,))
+    total_expense = cursor.fetchone()['total_expense'] or 0
+    total_expense = float(total_expense)
+
+    warning_message = None
+    warning_color = None
+
+    if budget is not None and budget > 0:
+        usage_percent = (total_expense / budget) * 100
+        if usage_percent >= 100:
+            warning_message = "🚨 You have exceeded your budget! Please review your expenses."
+            warning_color = "danger"
+        elif usage_percent >= 90:
+            warning_message = "⚠️ You have used over 90% of your budget. Spend carefully!"
+            warning_color = "warning"
+
+    return dict(warning_message=warning_message, warning_color=warning_color)
 
 if __name__ == '__main__':
     app.run(debug=True, threaded=False)
